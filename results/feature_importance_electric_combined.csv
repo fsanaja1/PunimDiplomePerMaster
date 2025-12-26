@@ -1,0 +1,13 @@
+feature,mean,count
+cat__Location (front/rear seat/inside front shield)_rear seat,0.3846672261058311,7
+cat__Location (front/rear seat/inside front shield)_front ,0.3655718418125858,1
+num__Speed,0.3182220741606104,1
+cat__Location (front/rear seat/inside front shield)_inside front shield ,0.29783185932008666,6
+cat__Location (front/rear seat/inside front shield)_front,0.2744211876693348,6
+cat__Location (front/rear seat/inside front shield)_inside front shield,0.1900172193494566,1
+cat__Area description (Traffic and road conditions)_heavy traffic on the road,0.0,1
+"cat__Area description (Traffic and road conditions)_Parking area with more than 100 cars, and a regional road in front ",0.0,1
+cat__Area description (Traffic and road conditions)_nan,0.0,1
+cat__Area description (Traffic and road conditions)_little to no traffic,0.0,1
+"cat__Area description (Traffic and road conditions)_parking area, reagional road near ",0.0,1
+cat__Area description (Traffic and road conditions)_regional road with heavy traffic,0.0,2

@@ -2,16 +2,25 @@ RF ELF Exposure Model – Results Summary
 =====================================
 
 Total rows used: 171
-Target: B (µT)
+Targets: B (µT) and Electric Field (V/m) (Multi-output regression)
 
-Baseline (DummyRegressor, CV=3-fold)
-  RMSE: 6.923 µT
-  R²:   -0.015
+Baseline (DummyRegressor, CV=3-fold) - Multi-output
+  B (µT):      RMSE: 6.923 µT,  R²: -0.015
+  E (V/m):     RMSE: 0.764 V/m, R²: -0.014
 
-Random Forest (best via GridSearchCV, CV=3-fold)
-  Best params: {'model__max_depth': 3, 'model__min_samples_leaf': 2, 'model__n_estimators': 500}
-  RMSE: 7.375 µT
-  R²:   -0.151
+Random Forest (best via GridSearchCV, CV=3-fold) - Multi-output
+  Best params: {'model__max_depth': 3, 'model__min_samples_leaf': 2, 'model__n_estimators': 200}
+  B (µT):      RMSE: 7.254 µT,  R²: -0.114
+  E (V/m):     RMSE: 0.708 V/m, R²: 0.129
+
+TensorFlow/Keras Neural Network (train/test split 80/20) - Multi-output
+  Architecture: Dense(64) -> Dropout(0.2) -> Dense(32) -> Dropout(0.2) -> Dense(16) -> Dense(2)
+  Optimizer: Adam (lr=0.001)
+  Training samples: 136
+  Test samples: 35
+  B (µT):      RMSE: 6.863 µT,  R²: -0.065
+  E (V/m):     RMSE: 0.788 V/m, R²: -0.100
+  Note: TensorFlow model uses train/test split due to dataset size.
 
 Per-sheet outputs (one PNG per sheet)
   - feature_importance_electric__accelerating.png
@@ -56,45 +65,51 @@ Per-sheet outputs (one PNG per sheet)
 What-if scenario used for each sheet
   Location: front
   Traffic:  heavy traffic on the road
-  Battery:  100% (constant)
-  E-field:  1.2 V/m
   Speed:    80 km/h
+  Note: Both B (µT) and E (V/m) are predicted for this scenario
 
 ICNIRP comparison (ELF)
   Frequency: 50 Hz
   Category:  general_public
   Limit B:   200 µT
-  Risk table: icnirp_risk_by_sheet.csv
 
-Per-sheet what-if predictions (B̂, µT)
-  - electric / Accelerating (n=9, CV=3): 1.111
-  - electric / Around the city (n=9, CV=3): 1.477
-  - electric / Braking (n=9, CV=3): 1.319
-  - electric / High voltage power lines around (n=9, CV=3): 2.796
-  - electric / Starting the engine (n=9, CV=3): 1.159
-  - electric / Vicinity of charging stations (n=9, CV=3): 1.012
-  - electric / While charging (n=9, CV=3): 2.465
-  - hybrid / Accelerating (n=9, CV=3): 14.265
-  - hybrid / Around the city (n=9, CV=3): 1.446
-  - hybrid / Braking (n=9, CV=3): 2.899
-  - hybrid / High voltage power lines (n=9, CV=3): 2.835
-  - hybrid / Starting the engine (n=9, CV=3): 0.849
-  - hybrid / Vicinity of charging stations (n=9, CV=3): 1.414
-  - mildhybrid / Accelerating (n=9, CV=3): 2.795
-  - mildhybrid / Around the city (n=9, CV=3): 1.586
-  - mildhybrid / Braking (n=9, CV=3): 1.710
-  - mildhybrid / High Voltage power lines around (n=9, CV=3): 2.035
-  - mildhybrid / Starting the engine (n=9, CV=3): 0.639
-  - mildhybrid / Vicinity of charging stations (n=9, CV=3): 0.998
+IEEE C95.6-2002 comparison (ELF)
+  Frequency: 50 Hz
+  Category:  general_public
+  Limit B:   904 µT
+  NOTE: Verify these IEEE values against the exact IEEE C95.6-2002 document.
+
+Risk comparison table (ICNIRP + IEEE): exposure_risk_by_sheet.csv
+
+Per-sheet what-if predictions (Multi-output)
+  - electric / Accelerating (n=9, CV=3): B̂=1.165 µT, Ê=1.625 V/m
+  - electric / Around the city (n=9, CV=3): B̂=1.012 µT, Ê=1.214 V/m
+  - electric / Braking (n=9, CV=3): B̂=1.113 µT, Ê=1.232 V/m
+  - electric / High voltage power lines around (n=9, CV=3): B̂=2.232 µT, Ê=0.898 V/m
+  - electric / Starting the engine (n=9, CV=3): B̂=1.014 µT, Ê=0.625 V/m
+  - electric / Vicinity of charging stations (n=9, CV=3): B̂=1.044 µT, Ê=1.145 V/m
+  - electric / While charging (n=9, CV=3): B̂=2.019 µT, Ê=1.123 V/m
+  - hybrid / Accelerating (n=9, CV=3): B̂=20.239 µT, Ê=1.829 V/m
+  - hybrid / Around the city (n=9, CV=3): B̂=1.403 µT, Ê=1.199 V/m
+  - hybrid / Braking (n=9, CV=3): B̂=2.455 µT, Ê=1.159 V/m
+  - hybrid / High voltage power lines (n=9, CV=3): B̂=1.375 µT, Ê=1.413 V/m
+  - hybrid / Starting the engine (n=9, CV=3): B̂=0.865 µT, Ê=0.614 V/m
+  - hybrid / Vicinity of charging stations (n=9, CV=3): B̂=1.231 µT, Ê=1.473 V/m
+  - mildhybrid / Accelerating (n=9, CV=3): B̂=1.527 µT, Ê=0.512 V/m
+  - mildhybrid / Around the city (n=9, CV=3): B̂=2.707 µT, Ê=2.088 V/m
+  - mildhybrid / Braking (n=9, CV=3): B̂=1.974 µT, Ê=1.157 V/m
+  - mildhybrid / High Voltage power lines around (n=9, CV=3): B̂=2.399 µT, Ê=1.246 V/m
+  - mildhybrid / Starting the engine (n=9, CV=3): B̂=0.660 µT, Ê=0.575 V/m
+  - mildhybrid / Vicinity of charging stations (n=9, CV=3): B̂=0.875 µT, Ê=1.457 V/m
 
 Per-sheet measured risk (Top 10 by measured max(B))
-  - hybrid / Accelerating: mean=10.175 µT, p95=45.912 µT, max=73.280 µT; exceeds=False
-  - mildhybrid / High Voltage power lines around: mean=5.216 µT, p95=22.280 µT, max=35.550 µT; exceeds=False
-  - hybrid / High voltage power lines: mean=7.030 µT, p95=29.310 µT, max=33.310 µT; exceeds=False
-  - mildhybrid / Around the city: mean=3.427 µT, p95=11.207 µT, max=16.670 µT; exceeds=False
-  - hybrid / Around the city: mean=3.816 µT, p95=9.012 µT, max=9.200 µT; exceeds=False
-  - electric / Around the city: mean=1.924 µT, p95=5.585 µT, max=6.019 µT; exceeds=False
-  - mildhybrid / Braking: mean=2.227 µT, p95=4.695 µT, max=5.530 µT; exceeds=False
-  - mildhybrid / Accelerating: mean=2.237 µT, p95=4.640 µT, max=5.122 µT; exceeds=False
-  - hybrid / Braking: mean=3.073 µT, p95=4.485 µT, max=5.033 µT; exceeds=False
-  - electric / High voltage power lines around: mean=2.176 µT, p95=4.346 µT, max=4.634 µT; exceeds=False
+  - hybrid / Accelerating: B: mean=10.175 µT, p95=45.912 µT, max=73.280 µT; E: mean=1.559 V/m, max=2.570 V/m; ICNIRP exceeds: NO, IEEE exceeds: NO
+  - mildhybrid / High Voltage power lines around: B: mean=5.216 µT, p95=22.280 µT, max=35.550 µT; E: mean=1.324 V/m, max=3.420 V/m; ICNIRP exceeds: NO, IEEE exceeds: NO
+  - hybrid / High voltage power lines: B: mean=7.030 µT, p95=29.310 µT, max=33.310 µT; E: mean=2.080 V/m, max=3.630 V/m; ICNIRP exceeds: NO, IEEE exceeds: NO
+  - mildhybrid / Around the city: B: mean=3.427 µT, p95=11.207 µT, max=16.670 µT; E: mean=2.102 V/m, max=3.390 V/m; ICNIRP exceeds: NO, IEEE exceeds: NO
+  - hybrid / Around the city: B: mean=3.816 µT, p95=9.012 µT, max=9.200 µT; E: mean=1.102 V/m, max=1.340 V/m; ICNIRP exceeds: NO, IEEE exceeds: NO
+  - electric / Around the city: B: mean=1.924 µT, p95=5.585 µT, max=6.019 µT; E: mean=1.133 V/m, max=1.990 V/m; ICNIRP exceeds: NO, IEEE exceeds: NO
+  - mildhybrid / Braking: B: mean=2.227 µT, p95=4.695 µT, max=5.530 µT; E: mean=1.127 V/m, max=1.920 V/m; ICNIRP exceeds: NO, IEEE exceeds: NO
+  - mildhybrid / Accelerating: B: mean=2.237 µT, p95=4.640 µT, max=5.122 µT; E: mean=0.712 V/m, max=1.240 V/m; ICNIRP exceeds: NO, IEEE exceeds: NO
+  - hybrid / Braking: B: mean=3.073 µT, p95=4.485 µT, max=5.033 µT; E: mean=0.967 V/m, max=2.640 V/m; ICNIRP exceeds: NO, IEEE exceeds: NO
+  - electric / High voltage power lines around: B: mean=2.176 µT, p95=4.346 µT, max=4.634 µT; E: mean=0.889 V/m, max=2.520 V/m; ICNIRP exceeds: NO, IEEE exceeds: NO

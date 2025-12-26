@@ -1,7 +1,6 @@
 feature,importance
-num__Electric Field (V/m),0.6949263852731252
-cat__Location (front/rear seat/inside front shield)_front ,0.18156899045075647
-cat__Location (front/rear seat/inside front shield)_inside front shield ,0.06829441935251794
-num__Speed,0.04628171573534833
-cat__Location (front/rear seat/inside front shield)_back ,0.008928489188252111
+cat__Location (front/rear seat/inside front shield)_inside front shield ,0.5782690206282597
+cat__Location (front/rear seat/inside front shield)_back ,0.29109746111740475
+cat__Location (front/rear seat/inside front shield)_front ,0.13063351825433558
 cat__Area description (Traffic and road conditions)_regional road - moderated traffic,0.0
+num__Speed,0.0
