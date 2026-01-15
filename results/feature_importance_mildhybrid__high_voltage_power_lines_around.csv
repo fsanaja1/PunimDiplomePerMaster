@@ -1,5 +1,6 @@
 feature,importance
-cat__Location (front/rear seat/inside front shield)_front ,0.6532522985720769
-cat__Location (front/rear seat/inside front shield)_back ,0.2783379802031274
-cat__Location (front/rear seat/inside front shield)_inside front shield ,0.06840972122479586
+cat__Location (front/rear seat/inside front shield)_front ,0.6478264806535255
+cat__Location (front/rear seat/inside front shield)_back ,0.2773699582620148
+cat__Location (front/rear seat/inside front shield)_inside front shield ,0.07480356108445968
 cat__Area description (Traffic and road conditions)_little to no traffic,0.0
+num__Speed,0.0

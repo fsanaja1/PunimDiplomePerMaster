@@ -101,3 +101,5 @@ python .\src\rf_elf_model.py
 **Zgjidhja më e mirë** është të instaloni Python nga python.org dhe të siguroheni që "Add Python to PATH" është e zgjedhur gjatë instalimit.
 
 
+
+

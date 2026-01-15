@@ -106,3 +106,5 @@ Kontrolloni:
 4. **Diskutoni rezultatet** në tezë - pse disa skenarë tejkalojnë ICNIRP por jo IEEE (ose anasjelltas)
 
 
+
+

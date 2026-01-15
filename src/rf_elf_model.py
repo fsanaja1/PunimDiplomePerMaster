@@ -44,47 +44,73 @@ print("Loading dataset...")
 script_dir = Path(__file__).parent
 data_dir = script_dir.parent / "data"
 
-# Load multiple car datasets (electric / hybrid / mildhybrid)
-data_files = [
-    (data_dir / "Narda_electricar_em.xlsx", "electric"),
-    (data_dir / "Narda_hybrid_em.xlsx", "hybrid"),
-    (data_dir / "Narda_mildhybrid_em.xlsx", "mildhybrid"),
-]
+# Përdor vetëm file-in e kombinuar me të gjitha llojet e makinave
+data_file = data_dir / "Narda_all_cars.xlsx"
+
+if not data_file.exists():
+    raise FileNotFoundError(f"Input file not found: {data_file}")
 
 frames: list[pd.DataFrame] = []
-for file_path, car_type in data_files:
-    if not file_path.exists():
-        print(f"Warning: missing file: {file_path}")
-        continue
 
-    # Read ALL sheets ("pages") from the Excel file
-    # pandas returns a dict: {sheet_name: DataFrame}
-    all_sheets = pd.read_excel(file_path, sheet_name=None)
+# Read ALL sheets ("pages") from the combined Excel file
+# pandas returns a dict: {sheet_name: DataFrame}
+all_sheets = pd.read_excel(data_file, sheet_name=None)
 
-    for sheet_name, df in all_sheets.items():
-        df = df.copy()
-        df["car_type"] = car_type
+# Mapping i kolonave nga file-i i ri në emrat e pritshëm nga kodi
+COLUMN_MAPPING = {
+    "speed_kmh": "Speed",
+    "location": "Location (front/rear seat/inside front shield)",
+    "traffic_condition": "Area description (Traffic and road conditions)",
+    "driving_condition": "sheet_name",  # Përdor driving_condition si sheet_name/scenario
+}
+
+for sheet_name, df in all_sheets.items():
+    df = df.copy()
+    df["source_file"] = data_file.name
+
+    # Apliko column mapping
+    for old_col, new_col in COLUMN_MAPPING.items():
+        if old_col in df.columns:
+            # Nëse driving_condition ekziston, përdore atë si sheet_name
+            if old_col == "driving_condition":
+                df["sheet_name"] = df[old_col].astype(str).str.strip()
+            else:
+                df[new_col] = df[old_col]
+    
+    # Nëse nuk ka driving_condition, përdor sheet_name origjinal
+    if "sheet_name" not in df.columns:
         df["sheet_name"] = sheet_name
-        df["source_file"] = file_path.name
+    
+    # Normalizo B (µT) column nëse ka encoding issues
+    b_cols = [c for c in df.columns if c.startswith("B (") and "T)" in c]
+    if b_cols and "B (µT)" not in df.columns:
+        df = df.rename(columns={b_cols[0]: "B (µT)"})
+    
+    # Normalizo car_type nëse ekziston
+    if "car_type" in df.columns:
+        df["car_type"] = df["car_type"].astype(str).str.strip().str.lower()
+        # Normalizoni vlerat e njohura
+        df["car_type"] = df["car_type"].replace({
+            "electric": "electric",
+            "hybrid": "hybrid",
+            "mild hybrid": "mildhybrid",
+            "mildhybrid": "mildhybrid",
+            "mild-hybrid": "mildhybrid",
+            "mild_hybrid": "mildhybrid",
+        })
+    else:
+        df["car_type"] = "unknown"
 
-        # Normalize column names that differ between files
-        if "Speed km/h" in df.columns and "Speed" not in df.columns:
-            df = df.rename(columns={"Speed km/h": "Speed"})
-
-        # Normalize 'Type of car' column name (optional)
-        if "Type of car:" in df.columns and "Type of car" not in df.columns:
-            df = df.rename(columns={"Type of car:": "Type of car"})
-
-        frames.append(df)
+    frames.append(df)
 
 if not frames:
-    raise FileNotFoundError(
-        f"No input Excel files found in {data_dir}. Expected: {[p.name for p, _ in data_files]}"
-    )
+    raise FileNotFoundError(f"No sheets found in {data_file}")
 
 data = pd.concat(frames, ignore_index=True)
 
-print(f"Dataset loaded successfully: {len(data)} rows\n")
+print(f"Dataset loaded successfully: {len(data)} rows")
+print(f"Car types found: {data['car_type'].unique().tolist()}")
+print(f"Scenarios (driving conditions) found: {data['sheet_name'].unique().tolist()}\n")
 
 # -----------------------------------------------------
 # 2. Përzgjedhja e kolonave relevante

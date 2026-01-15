@@ -5,62 +5,62 @@ Total rows used: 171
 Targets: B (µT) and Electric Field (V/m) (Multi-output regression)
 
 Baseline (DummyRegressor, CV=3-fold) - Multi-output
-  B (µT):      RMSE: 6.923 µT,  R²: -0.015
-  E (V/m):     RMSE: 0.764 V/m, R²: -0.014
+  B (µT):      RMSE: 6.954 µT,  R²: -0.024
+  E (V/m):     RMSE: 0.779 V/m, R²: -0.022
 
 Random Forest (best via GridSearchCV, CV=3-fold) - Multi-output
-  Best params: {'model__max_depth': 3, 'model__min_samples_leaf': 2, 'model__n_estimators': 200}
-  B (µT):      RMSE: 7.254 µT,  R²: -0.114
-  E (V/m):     RMSE: 0.708 V/m, R²: 0.129
+  Best params: {'model__max_depth': None, 'model__min_samples_leaf': 1, 'model__n_estimators': 200}
+  B (µT):      RMSE: 7.027 µT,  R²: -0.046
+  E (V/m):     RMSE: 0.674 V/m, R²: 0.236
 
 TensorFlow/Keras Neural Network (train/test split 80/20) - Multi-output
   Architecture: Dense(64) -> Dropout(0.2) -> Dense(32) -> Dropout(0.2) -> Dense(16) -> Dense(2)
   Optimizer: Adam (lr=0.001)
   Training samples: 136
   Test samples: 35
-  B (µT):      RMSE: 6.863 µT,  R²: -0.065
-  E (V/m):     RMSE: 0.788 V/m, R²: -0.100
+  B (µT):      RMSE: 5.945 µT,  R²: -0.061
+  E (V/m):     RMSE: 1.059 V/m, R²: -0.477
   Note: TensorFlow model uses train/test split due to dataset size.
 
 Per-sheet outputs (one PNG per sheet)
-  - feature_importance_electric__accelerating.png
-  - feature_importance_electric__accelerating.csv
-  - feature_importance_electric__around_the_city.png
-  - feature_importance_electric__around_the_city.csv
   - feature_importance_electric__braking.png
   - feature_importance_electric__braking.csv
   - feature_importance_electric__high_voltage_power_lines_around.png
   - feature_importance_electric__high_voltage_power_lines_around.csv
   - feature_importance_electric__starting_the_engine.png
   - feature_importance_electric__starting_the_engine.csv
-  - feature_importance_electric__vicinity_of_charging_stations.png
-  - feature_importance_electric__vicinity_of_charging_stations.csv
   - feature_importance_electric__while_charging.png
   - feature_importance_electric__while_charging.csv
-  - feature_importance_hybrid__accelerating.png
-  - feature_importance_hybrid__accelerating.csv
-  - feature_importance_hybrid__around_the_city.png
-  - feature_importance_hybrid__around_the_city.csv
+  - feature_importance_electric__acclerating.png
+  - feature_importance_electric__acclerating.csv
+  - feature_importance_electric__urban_cruising.png
+  - feature_importance_electric__urban_cruising.csv
+  - feature_importance_electric__vicinity_of_charging_station.png
+  - feature_importance_electric__vicinity_of_charging_station.csv
   - feature_importance_hybrid__braking.png
   - feature_importance_hybrid__braking.csv
-  - feature_importance_hybrid__high_voltage_power_lines.png
-  - feature_importance_hybrid__high_voltage_power_lines.csv
+  - feature_importance_hybrid__high_voltage_power_lines_around.png
+  - feature_importance_hybrid__high_voltage_power_lines_around.csv
   - feature_importance_hybrid__starting_the_engine.png
   - feature_importance_hybrid__starting_the_engine.csv
-  - feature_importance_hybrid__vicinity_of_charging_stations.png
-  - feature_importance_hybrid__vicinity_of_charging_stations.csv
-  - feature_importance_mildhybrid__accelerating.png
-  - feature_importance_mildhybrid__accelerating.csv
-  - feature_importance_mildhybrid__around_the_city.png
-  - feature_importance_mildhybrid__around_the_city.csv
+  - feature_importance_hybrid__acclerating.png
+  - feature_importance_hybrid__acclerating.csv
+  - feature_importance_hybrid__urban_cruising.png
+  - feature_importance_hybrid__urban_cruising.csv
+  - feature_importance_hybrid__vicinity_of_charging_station.png
+  - feature_importance_hybrid__vicinity_of_charging_station.csv
   - feature_importance_mildhybrid__braking.png
   - feature_importance_mildhybrid__braking.csv
   - feature_importance_mildhybrid__high_voltage_power_lines_around.png
   - feature_importance_mildhybrid__high_voltage_power_lines_around.csv
   - feature_importance_mildhybrid__starting_the_engine.png
   - feature_importance_mildhybrid__starting_the_engine.csv
-  - feature_importance_mildhybrid__vicinity_of_charging_stations.png
-  - feature_importance_mildhybrid__vicinity_of_charging_stations.csv
+  - feature_importance_mildhybrid__acclerating.png
+  - feature_importance_mildhybrid__acclerating.csv
+  - feature_importance_mildhybrid__urban_cruising.png
+  - feature_importance_mildhybrid__urban_cruising.csv
+  - feature_importance_mildhybrid__vicinity_of_charging_station.png
+  - feature_importance_mildhybrid__vicinity_of_charging_station.csv
 
 What-if scenario used for each sheet
   Location: front
@@ -82,34 +82,34 @@ IEEE C95.6-2002 comparison (ELF)
 Risk comparison table (ICNIRP + IEEE): exposure_risk_by_sheet.csv
 
 Per-sheet what-if predictions (Multi-output)
-  - electric / Accelerating (n=9, CV=3): B̂=1.165 µT, Ê=1.625 V/m
-  - electric / Around the city (n=9, CV=3): B̂=1.012 µT, Ê=1.214 V/m
-  - electric / Braking (n=9, CV=3): B̂=1.113 µT, Ê=1.232 V/m
-  - electric / High voltage power lines around (n=9, CV=3): B̂=2.232 µT, Ê=0.898 V/m
+  - electric / Braking (n=9, CV=3): B̂=1.201 µT, Ê=1.365 V/m
+  - electric / High Voltage power lines around (n=9, CV=3): B̂=2.224 µT, Ê=0.932 V/m
   - electric / Starting the engine (n=9, CV=3): B̂=1.014 µT, Ê=0.625 V/m
-  - electric / Vicinity of charging stations (n=9, CV=3): B̂=1.044 µT, Ê=1.145 V/m
-  - electric / While charging (n=9, CV=3): B̂=2.019 µT, Ê=1.123 V/m
-  - hybrid / Accelerating (n=9, CV=3): B̂=20.239 µT, Ê=1.829 V/m
-  - hybrid / Around the city (n=9, CV=3): B̂=1.403 µT, Ê=1.199 V/m
-  - hybrid / Braking (n=9, CV=3): B̂=2.455 µT, Ê=1.159 V/m
-  - hybrid / High voltage power lines (n=9, CV=3): B̂=1.375 µT, Ê=1.413 V/m
+  - electric / While charging (n=9, CV=3): B̂=2.021 µT, Ê=1.123 V/m
+  - electric / acclerating (n=9, CV=3): B̂=1.163 µT, Ê=1.580 V/m
+  - electric / urban_cruising (n=9, CV=3): B̂=0.810 µT, Ê=1.447 V/m
+  - electric / vicinity of charging station (n=9, CV=3): B̂=1.196 µT, Ê=1.140 V/m
+  - hybrid / Braking (n=9, CV=3): B̂=2.552 µT, Ê=1.025 V/m
+  - hybrid / High Voltage power lines around (n=9, CV=3): B̂=1.375 µT, Ê=1.413 V/m
   - hybrid / Starting the engine (n=9, CV=3): B̂=0.865 µT, Ê=0.614 V/m
-  - hybrid / Vicinity of charging stations (n=9, CV=3): B̂=1.231 µT, Ê=1.473 V/m
-  - mildhybrid / Accelerating (n=9, CV=3): B̂=1.527 µT, Ê=0.512 V/m
-  - mildhybrid / Around the city (n=9, CV=3): B̂=2.707 µT, Ê=2.088 V/m
-  - mildhybrid / Braking (n=9, CV=3): B̂=1.974 µT, Ê=1.157 V/m
-  - mildhybrid / High Voltage power lines around (n=9, CV=3): B̂=2.399 µT, Ê=1.246 V/m
-  - mildhybrid / Starting the engine (n=9, CV=3): B̂=0.660 µT, Ê=0.575 V/m
-  - mildhybrid / Vicinity of charging stations (n=9, CV=3): B̂=0.875 µT, Ê=1.457 V/m
+  - hybrid / acclerating (n=9, CV=3): B̂=23.281 µT, Ê=1.740 V/m
+  - hybrid / urban_cruising (n=9, CV=3): B̂=1.398 µT, Ê=1.209 V/m
+  - hybrid / vicinity of charging station (n=9, CV=3): B̂=1.233 µT, Ê=1.481 V/m
+  - mildhybrid / Braking (n=9, CV=3): B̂=1.929 µT, Ê=0.925 V/m
+  - mildhybrid / High Voltage power lines around (n=9, CV=3): B̂=2.367 µT, Ê=1.252 V/m
+  - mildhybrid / Starting the engine (n=9, CV=3): B̂=0.656 µT, Ê=0.580 V/m
+  - mildhybrid / acclerating (n=9, CV=3): B̂=1.494 µT, Ê=0.606 V/m
+  - mildhybrid / urban_cruising (n=9, CV=3): B̂=2.693 µT, Ê=2.035 V/m
+  - mildhybrid / vicinity of charging station (n=9, CV=3): B̂=0.875 µT, Ê=1.457 V/m
 
 Per-sheet measured risk (Top 10 by measured max(B))
-  - hybrid / Accelerating: B: mean=10.175 µT, p95=45.912 µT, max=73.280 µT; E: mean=1.559 V/m, max=2.570 V/m; ICNIRP exceeds: NO, IEEE exceeds: NO
+  - hybrid / acclerating: B: mean=10.175 µT, p95=45.912 µT, max=73.280 µT; E: mean=1.559 V/m, max=2.570 V/m; ICNIRP exceeds: NO, IEEE exceeds: NO
   - mildhybrid / High Voltage power lines around: B: mean=5.216 µT, p95=22.280 µT, max=35.550 µT; E: mean=1.324 V/m, max=3.420 V/m; ICNIRP exceeds: NO, IEEE exceeds: NO
-  - hybrid / High voltage power lines: B: mean=7.030 µT, p95=29.310 µT, max=33.310 µT; E: mean=2.080 V/m, max=3.630 V/m; ICNIRP exceeds: NO, IEEE exceeds: NO
-  - mildhybrid / Around the city: B: mean=3.427 µT, p95=11.207 µT, max=16.670 µT; E: mean=2.102 V/m, max=3.390 V/m; ICNIRP exceeds: NO, IEEE exceeds: NO
-  - hybrid / Around the city: B: mean=3.816 µT, p95=9.012 µT, max=9.200 µT; E: mean=1.102 V/m, max=1.340 V/m; ICNIRP exceeds: NO, IEEE exceeds: NO
-  - electric / Around the city: B: mean=1.924 µT, p95=5.585 µT, max=6.019 µT; E: mean=1.133 V/m, max=1.990 V/m; ICNIRP exceeds: NO, IEEE exceeds: NO
+  - hybrid / High Voltage power lines around: B: mean=7.030 µT, p95=29.310 µT, max=33.310 µT; E: mean=2.080 V/m, max=3.630 V/m; ICNIRP exceeds: NO, IEEE exceeds: NO
+  - mildhybrid / urban_cruising: B: mean=3.427 µT, p95=11.207 µT, max=16.670 µT; E: mean=2.102 V/m, max=3.390 V/m; ICNIRP exceeds: NO, IEEE exceeds: NO
+  - hybrid / urban_cruising: B: mean=3.816 µT, p95=9.012 µT, max=9.200 µT; E: mean=0.967 V/m, max=2.640 V/m; ICNIRP exceeds: NO, IEEE exceeds: NO
+  - electric / urban_cruising: B: mean=1.924 µT, p95=5.585 µT, max=6.019 µT; E: mean=1.133 V/m, max=1.990 V/m; ICNIRP exceeds: NO, IEEE exceeds: NO
   - mildhybrid / Braking: B: mean=2.227 µT, p95=4.695 µT, max=5.530 µT; E: mean=1.127 V/m, max=1.920 V/m; ICNIRP exceeds: NO, IEEE exceeds: NO
-  - mildhybrid / Accelerating: B: mean=2.237 µT, p95=4.640 µT, max=5.122 µT; E: mean=0.712 V/m, max=1.240 V/m; ICNIRP exceeds: NO, IEEE exceeds: NO
+  - mildhybrid / acclerating: B: mean=2.237 µT, p95=4.640 µT, max=5.122 µT; E: mean=0.712 V/m, max=1.240 V/m; ICNIRP exceeds: NO, IEEE exceeds: NO
   - hybrid / Braking: B: mean=3.073 µT, p95=4.485 µT, max=5.033 µT; E: mean=0.967 V/m, max=2.640 V/m; ICNIRP exceeds: NO, IEEE exceeds: NO
-  - electric / High voltage power lines around: B: mean=2.176 µT, p95=4.346 µT, max=4.634 µT; E: mean=0.889 V/m, max=2.520 V/m; ICNIRP exceeds: NO, IEEE exceeds: NO
+  - electric / High Voltage power lines around: B: mean=2.176 µT, p95=4.346 µT, max=4.634 µT; E: mean=0.889 V/m, max=2.520 V/m; ICNIRP exceeds: NO, IEEE exceeds: NO
