@@ -7,6 +7,7 @@
 import pandas as pd
 import numpy as np
 from pathlib import Path
+import time
 
 import matplotlib
 
@@ -330,12 +331,14 @@ rf = Pipeline(
 cv = KFold(n_splits=3, shuffle=True, random_state=42)
 
 print("Evaluating baseline (DummyRegressor) with 3-fold CV...")
+_t0 = time.perf_counter()
 y_pred_base = cross_val_predict(baseline, X, y, cv=cv)
 # Për multi-output, llogaritim metrikat për çdo target veç e veç
 rmse_base_b = np.sqrt(mean_squared_error(y.iloc[:, 0], y_pred_base[:, 0]))
 r2_base_b = r2_score(y.iloc[:, 0], y_pred_base[:, 0])
 rmse_base_e = np.sqrt(mean_squared_error(y.iloc[:, 1], y_pred_base[:, 1]))
 r2_base_e = r2_score(y.iloc[:, 1], y_pred_base[:, 1])
+baseline_train_seconds = time.perf_counter() - _t0
 print("Baseline Performance (CV) - Multi-output:")
 print(f"  B (µT):      RMSE: {rmse_base_b:.3f} µT,  R²: {r2_base_b:.3f}")
 print(f"  E (V/m):     RMSE: {rmse_base_e:.3f} V/m, R²: {r2_base_e:.3f}\n")
@@ -356,8 +359,10 @@ search = GridSearchCV(
     cv=cv,
     n_jobs=-1,
 )
+_t1 = time.perf_counter()
 search.fit(X, y)
 best_model = search.best_estimator_
+rf_train_seconds = time.perf_counter() - _t1
 
 print("Best params:")
 print(search.best_params_, "\n")
@@ -421,6 +426,7 @@ if TENSORFLOW_AVAILABLE:
     
     # Train modelin
     print("  Training TensorFlow model (this may take a moment)...")
+    _t2 = time.perf_counter()
     history = tf_model.fit(
         X_train_tf, y_train_tf,
         validation_split=0.2,
@@ -429,6 +435,7 @@ if TENSORFLOW_AVAILABLE:
         verbose=0,
         callbacks=[early_stopping]
     )
+    tf_train_seconds = time.perf_counter() - _t2
     
     # Vlerësimi (multi-output)
     y_pred_tf = tf_model.predict(X_test_tf, verbose=0)
@@ -451,6 +458,7 @@ if TENSORFLOW_AVAILABLE:
         "r2_e": r2_tf_e,
         "n_train": len(X_train_tf),
         "n_test": len(X_test_tf),
+        "train_seconds": tf_train_seconds,
     }
 else:
     tf_metrics = None
@@ -498,6 +506,118 @@ PLOT_STYLE = {
     "title_fontsize": 14,
     "base_fontsize": 11,
 }
+
+# -----------------------------------------------------
+# Bland-Altman plots (Measured vs Predicted)
+# -----------------------------------------------------
+def _bland_altman_plot(
+    measured: pd.Series,
+    predicted: np.ndarray,
+    label: str,
+    units: str,
+    out_path: Path,
+    groups: pd.Series | None = None,
+) -> None:
+    """Create and save a Bland-Altman plot."""
+    measured = pd.to_numeric(measured, errors="coerce")
+    predicted = pd.to_numeric(pd.Series(predicted), errors="coerce")
+    if groups is not None:
+        groups = groups.reset_index(drop=True)
+    mask = measured.notna() & predicted.notna()
+    measured = measured[mask]
+    predicted = predicted[mask]
+    if groups is not None:
+        groups = groups[mask]
+
+    means = (measured + predicted) / 2.0
+    diffs = predicted - measured
+    mean_diff = diffs.mean()
+    sd_diff = diffs.std(ddof=1)
+    loa_upper = mean_diff + 1.96 * sd_diff
+    loa_lower = mean_diff - 1.96 * sd_diff
+
+    plt.rcParams.update(
+        {
+            "font.size": PLOT_STYLE["base_fontsize"],
+            "axes.titlesize": PLOT_STYLE["title_fontsize"],
+            "axes.labelsize": 12,
+        }
+    )
+
+    fig, ax = plt.subplots(figsize=(10, 6))
+    if groups is None:
+        ax.scatter(means, diffs, alpha=0.6, edgecolor="k", linewidth=0.3)
+    else:
+        # Color by group (car_type)
+        group_colors = {
+            "electric": "#2E86AB",
+            "hybrid": "#F5A623",
+            "mildhybrid": "#7ED321",
+            "unknown": "#9B9B9B",
+        }
+        for g_name, g_data in pd.DataFrame(
+            {"mean": means, "diff": diffs, "group": groups}
+        ).groupby("group"):
+            color = group_colors.get(str(g_name), "#9B9B9B")
+            ax.scatter(
+                g_data["mean"],
+                g_data["diff"],
+                alpha=0.7,
+                edgecolor="k",
+                linewidth=0.3,
+                label=str(g_name),
+                color=color,
+            )
+    ax.axhline(mean_diff, color="red", linestyle="--", label=f"Mean diff: {mean_diff:.3f} {units}")
+    ax.axhline(loa_upper, color="gray", linestyle="--", label=f"+1.96 SD: {loa_upper:.3f} {units}")
+    ax.axhline(loa_lower, color="gray", linestyle="--", label=f"-1.96 SD: {loa_lower:.3f} {units}")
+
+    ax.set_title(f"Bland-Altman Plot – {label}")
+    ax.set_xlabel(f"Mean of measured and predicted ({units})")
+    ax.set_ylabel(f"Predicted - Measured ({units})")
+    ax.grid(axis="y", linestyle="--", alpha=0.35)
+    ax.legend()
+    fig.tight_layout()
+
+    plt.savefig(out_path, dpi=PLOT_STYLE["dpi"])
+    plt.close()
+
+
+bland_altman_b_path = results_dir / "bland_altman_b.png"
+bland_altman_e_path = results_dir / "bland_altman_e.png"
+_bland_altman_plot(
+    measured=y.iloc[:, 0],
+    predicted=y_pred_cv[:, 0],
+    label="Magnetic Field B",
+    units="µT",
+    out_path=bland_altman_b_path,
+)
+_bland_altman_plot(
+    measured=y.iloc[:, 1],
+    predicted=y_pred_cv[:, 1],
+    label="Electric Field E",
+    units="V/m",
+    out_path=bland_altman_e_path,
+)
+bland_altman_b_by_car_path = results_dir / "bland_altman_b_by_car.png"
+bland_altman_e_by_car_path = results_dir / "bland_altman_e_by_car.png"
+_bland_altman_plot(
+    measured=y.iloc[:, 0],
+    predicted=y_pred_cv[:, 0],
+    label="Magnetic Field B (by car_type)",
+    units="µT",
+    out_path=bland_altman_b_by_car_path,
+    groups=X["car_type"],
+)
+_bland_altman_plot(
+    measured=y.iloc[:, 1],
+    predicted=y_pred_cv[:, 1],
+    label="Electric Field E (by car_type)",
+    units="V/m",
+    out_path=bland_altman_e_by_car_path,
+    groups=X["car_type"],
+)
+print(f"Saved Bland-Altman plots: {bland_altman_b_path}, {bland_altman_e_path}\n")
 
 
 # -----------------------------------------------------
@@ -907,11 +1027,13 @@ with open(summary_path, "w", encoding="utf-8") as f:
     f.write("Baseline (DummyRegressor, CV=3-fold) - Multi-output\n")
     f.write(f"  B (µT):      RMSE: {rmse_base_b:.3f} µT,  R²: {r2_base_b:.3f}\n")
     f.write(f"  E (V/m):     RMSE: {rmse_base_e:.3f} V/m, R²: {r2_base_e:.3f}\n\n")
+    f.write(f"  Training time: {baseline_train_seconds:.2f} s\n\n")
 
     f.write("Random Forest (best via GridSearchCV, CV=3-fold) - Multi-output\n")
     f.write(f"  Best params: {search.best_params_}\n")
     f.write(f"  B (µT):      RMSE: {rmse_cv_b:.3f} µT,  R²: {r2_cv_b:.3f}\n")
     f.write(f"  E (V/m):     RMSE: {rmse_cv_e:.3f} V/m, R²: {r2_cv_e:.3f}\n\n")
+    f.write(f"  Training time: {rf_train_seconds:.2f} s\n\n")
     
     if TENSORFLOW_AVAILABLE and tf_metrics:
         f.write("TensorFlow/Keras Neural Network (train/test split 80/20) - Multi-output\n")
@@ -921,6 +1043,7 @@ with open(summary_path, "w", encoding="utf-8") as f:
         f.write(f"  Test samples: {tf_metrics['n_test']}\n")
         f.write(f"  B (µT):      RMSE: {tf_metrics['rmse_b']:.3f} µT,  R²: {tf_metrics['r2_b']:.3f}\n")
         f.write(f"  E (V/m):     RMSE: {tf_metrics['rmse_e']:.3f} V/m, R²: {tf_metrics['r2_e']:.3f}\n")
+        f.write(f"  Training time: {tf_metrics['train_seconds']:.2f} s\n")
         f.write(f"  Note: TensorFlow model uses train/test split due to dataset size.\n\n")
     else:
         f.write("TensorFlow/Keras Neural Network\n")
@@ -953,6 +1076,14 @@ with open(summary_path, "w", encoding="utf-8") as f:
     
     if risk_csv_path.exists():
         f.write(f"\nRisk comparison table (ICNIRP + IEEE): {risk_csv_path.name}\n")
+    if bland_altman_b_path.exists() and bland_altman_e_path.exists():
+        f.write("\nBland-Altman plots (Measured vs Predicted)\n")
+        f.write(f"  - {bland_altman_b_path.name}\n")
+        f.write(f"  - {bland_altman_e_path.name}\n")
+    if bland_altman_b_by_car_path.exists() and bland_altman_e_by_car_path.exists():
+        f.write("\nBland-Altman plots (Colored by car_type)\n")
+        f.write(f"  - {bland_altman_b_by_car_path.name}\n")
+        f.write(f"  - {bland_altman_e_by_car_path.name}\n")
     f.write("\nPer-sheet what-if predictions (Multi-output)\n")
     for r in per_sheet_results:
         f.write(

@@ -8,18 +8,23 @@ Baseline (DummyRegressor, CV=3-fold) - Multi-output
   B (µT):      RMSE: 6.954 µT,  R²: -0.024
   E (V/m):     RMSE: 0.779 V/m, R²: -0.022
 
+  Training time: 0.03 s
+
 Random Forest (best via GridSearchCV, CV=3-fold) - Multi-output
   Best params: {'model__max_depth': None, 'model__min_samples_leaf': 1, 'model__n_estimators': 200}
   B (µT):      RMSE: 7.027 µT,  R²: -0.046
   E (V/m):     RMSE: 0.674 V/m, R²: 0.236
+
+  Training time: 4.27 s
 
 TensorFlow/Keras Neural Network (train/test split 80/20) - Multi-output
   Architecture: Dense(64) -> Dropout(0.2) -> Dense(32) -> Dropout(0.2) -> Dense(16) -> Dense(2)
   Optimizer: Adam (lr=0.001)
   Training samples: 136
   Test samples: 35
-  B (µT):      RMSE: 5.945 µT,  R²: -0.061
-  E (V/m):     RMSE: 1.059 V/m, R²: -0.477
+  B (µT):      RMSE: 5.927 µT,  R²: -0.055
+  E (V/m):     RMSE: 0.981 V/m, R²: -0.266
+  Training time: 4.37 s
   Note: TensorFlow model uses train/test split due to dataset size.
 
 Per-sheet outputs (one PNG per sheet)
@@ -80,6 +85,14 @@ IEEE C95.6-2002 comparison (ELF)
   NOTE: Verify these IEEE values against the exact IEEE C95.6-2002 document.
 
 Risk comparison table (ICNIRP + IEEE): exposure_risk_by_sheet.csv
+
+Bland-Altman plots (Measured vs Predicted)
+  - bland_altman_b.png
+  - bland_altman_e.png
+
+Bland-Altman plots (Colored by car_type)
+  - bland_altman_b_by_car.png
+  - bland_altman_e_by_car.png
 
 Per-sheet what-if predictions (Multi-output)
   - electric / Braking (n=9, CV=3): B̂=1.201 µT, Ê=1.365 V/m
