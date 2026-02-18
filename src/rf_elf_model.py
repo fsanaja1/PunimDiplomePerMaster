@@ -517,6 +517,7 @@ def _bland_altman_plot(
     units: str,
     out_path: Path,
     groups: pd.Series | None = None,
+    training_seconds: float | None = None,
 ) -> None:
     """Create and save a Bland-Altman plot."""
     measured = pd.to_numeric(measured, errors="coerce")
@@ -577,7 +578,17 @@ def _bland_altman_plot(
     ax.set_ylabel(f"Predicted - Measured ({units})")
     ax.grid(axis="y", linestyle="--", alpha=0.35)
     ax.legend()
-    fig.tight_layout()
+    if training_seconds is not None:
+        fig.text(
+            0.5,
+            0.01,
+            f"Training time (model): {training_seconds:.2f} s",
+            ha="center",
+            va="bottom",
+            fontsize=PLOT_STYLE["base_fontsize"] - 1,
+            bbox={"boxstyle": "round,pad=0.25", "facecolor": "#F2F4F8", "edgecolor": "#C7CEDB"},
+        )
+    fig.tight_layout(rect=(0, 0.04, 1, 1))
 
     plt.savefig(out_path, dpi=PLOT_STYLE["dpi"])
     plt.close()
@@ -591,6 +602,7 @@ _bland_altman_plot(
     label="Magnetic Field B",
     units="µT",
     out_path=bland_altman_b_path,
+    training_seconds=rf_train_seconds,
 )
 _bland_altman_plot(
     measured=y.iloc[:, 1],
@@ -598,6 +610,7 @@ _bland_altman_plot(
     label="Electric Field E",
     units="V/m",
     out_path=bland_altman_e_path,
+    training_seconds=rf_train_seconds,
 )
 bland_altman_b_by_car_path = results_dir / "bland_altman_b_by_car.png"
 bland_altman_e_by_car_path = results_dir / "bland_altman_e_by_car.png"
@@ -608,6 +621,7 @@ _bland_altman_plot(
     units="µT",
     out_path=bland_altman_b_by_car_path,
     groups=X["car_type"],
+    training_seconds=rf_train_seconds,
 )
 _bland_altman_plot(
     measured=y.iloc[:, 1],
@@ -616,8 +630,249 @@ _bland_altman_plot(
     units="V/m",
     out_path=bland_altman_e_by_car_path,
     groups=X["car_type"],
+    training_seconds=rf_train_seconds,
 )
 print(f"Saved Bland-Altman plots: {bland_altman_b_path}, {bland_altman_e_path}\n")
+
+# -----------------------------------------------------
+# Training time & prediction error by category plots
+# -----------------------------------------------------
+def _plot_mae_by_category(
+    categories: pd.Series,
+    errors_b: pd.Series,
+    errors_e: pd.Series,
+    title: str,
+    out_path: Path,
+) -> None:
+    """Plot mean absolute error by category for B and E."""
+    df = pd.DataFrame(
+        {
+            "category": categories.astype(str),
+            "err_b": errors_b,
+            "err_e": errors_e,
+        }
+    ).dropna()
+    mae = (
+        df.groupby("category")[["err_b", "err_e"]]
+        .mean()
+        .sort_index()
+    )
+    if mae.empty:
+        return
+
+    x = np.arange(len(mae.index))
+    width = 0.35
+
+    plt.rcParams.update(
+        {
+            "font.size": PLOT_STYLE["base_fontsize"],
+            "axes.titlesize": PLOT_STYLE["title_fontsize"],
+            "axes.labelsize": 12,
+        }
+    )
+    fig, ax = plt.subplots(figsize=(12, 6))
+    ax.bar(x - width / 2, mae["err_b"], width, label="B (µT)", color="#2E86AB")
+    ax.bar(x + width / 2, mae["err_e"], width, label="E (V/m)", color="#4A90E2")
+
+    ax.set_title(title)
+    ax.set_xlabel("Category")
+    ax.set_ylabel("Mean Absolute Error")
+    ax.set_xticks(x)
+    ax.set_xticklabels(mae.index, rotation=25, ha="right")
+    ax.grid(axis="y", linestyle="--", alpha=0.35)
+    ax.legend()
+    fig.tight_layout()
+
+    plt.savefig(out_path, dpi=PLOT_STYLE["dpi"])
+    plt.close()
+
+
+def _plot_training_time_bar(out_path: Path) -> None:
+    """Plot training time per model."""
+    labels = ["Baseline", "Random Forest"]
+    times = [baseline_train_seconds, rf_train_seconds]
+    if tf_metrics is not None:
+        labels.append("TensorFlow")
+        times.append(float(tf_metrics["train_seconds"]))
+
+    plt.rcParams.update(
+        {
+            "font.size": PLOT_STYLE["base_fontsize"],
+            "axes.titlesize": PLOT_STYLE["title_fontsize"],
+            "axes.labelsize": 12,
+        }
+    )
+    fig, ax = plt.subplots(figsize=(8, 5))
+    ax.bar(labels, times, color=["#9B9B9B", "#2E86AB", "#7ED321"][: len(labels)])
+    ax.set_title("Training Time by Model")
+    ax.set_ylabel("Seconds")
+    ax.grid(axis="y", linestyle="--", alpha=0.35)
+    fig.tight_layout()
+
+    plt.savefig(out_path, dpi=PLOT_STYLE["dpi"])
+    plt.close()
+
+
+# Errors for B and E
+errors_b = (y_pred_cv[:, 0] - y.iloc[:, 0]).abs()
+errors_e = (y_pred_cv[:, 1] - y.iloc[:, 1]).abs()
+
+training_time_plot = results_dir / "training_time_by_model.png"
+_plot_training_time_bar(training_time_plot)
+
+location_plot = results_dir / "prediction_error_by_location.png"
+car_type_plot = results_dir / "prediction_error_by_car_type.png"
+_plot_mae_by_category(
+    categories=X["Location (front/rear seat/inside front shield)"],
+    errors_b=errors_b,
+    errors_e=errors_e,
+    title="Prediction Error (MAE) by Location",
+    out_path=location_plot,
+)
+_plot_mae_by_category(
+    categories=X["car_type"],
+    errors_b=errors_b,
+    errors_e=errors_e,
+    title="Prediction Error (MAE) by Car Type",
+    out_path=car_type_plot,
+)
+print(
+    f"Saved training/error plots: {training_time_plot}, {location_plot}, {car_type_plot}\n"
+)
+
+# -----------------------------------------------------
+# Additional graph: Measurement points by location/environment
+# -----------------------------------------------------
+def _plot_measurement_points_by_location_environment(
+    out_path: Path,
+) -> None:
+    """Plot raw measurement points by location, colored by outdoor environment."""
+    loc_col = "Location (front/rear seat/inside front shield)"
+    env_col = "Area description (Traffic and road conditions)"
+
+    df = pd.DataFrame(
+        {
+            "location": X[loc_col].astype(str),
+            "environment": X[env_col].astype(str),
+            "car_type": X["car_type"].astype(str),
+            "B": pd.to_numeric(y.iloc[:, 0], errors="coerce"),
+            "E": pd.to_numeric(y.iloc[:, 1], errors="coerce"),
+        }
+    ).dropna(subset=["location", "environment", "B", "E"])
+
+    if df.empty:
+        return
+
+    locations = sorted(df["location"].unique().tolist())
+    loc_to_x = {loc: i for i, loc in enumerate(locations)}
+    envs = sorted(df["environment"].unique().tolist())
+    cmap = plt.get_cmap("tab20")
+    env_to_color = {env: cmap(i % 20) for i, env in enumerate(envs)}
+
+    # Slight horizontal jitter so overlapping points become visible
+    rng = np.random.default_rng(42)
+    x_vals = df["location"].map(loc_to_x).to_numpy(dtype=float) + rng.uniform(
+        -0.15, 0.15, size=len(df)
+    )
+
+    plt.rcParams.update(
+        {
+            "font.size": PLOT_STYLE["base_fontsize"],
+            "axes.titlesize": PLOT_STYLE["title_fontsize"],
+            "axes.labelsize": 12,
+        }
+    )
+    fig, axes = plt.subplots(2, 1, figsize=(15, 10), sharex=True)
+
+    # Plot B
+    for env in envs:
+        mask = df["environment"] == env
+        axes[0].scatter(
+            x_vals[mask.values],
+            df.loc[mask, "B"],
+            s=35,
+            alpha=0.75,
+            color=env_to_color[env],
+            edgecolor="k",
+            linewidth=0.25,
+            label=env,
+        )
+    axes[0].set_title("Measurement Points by Location (colored by Outdoor Environment)")
+    axes[0].set_ylabel("B (µT)")
+    axes[0].grid(axis="y", linestyle="--", alpha=0.35)
+
+    # Plot E
+    for env in envs:
+        mask = df["environment"] == env
+        axes[1].scatter(
+            x_vals[mask.values],
+            df.loc[mask, "E"],
+            s=35,
+            alpha=0.75,
+            color=env_to_color[env],
+            edgecolor="k",
+            linewidth=0.25,
+        )
+    axes[1].set_ylabel("E (V/m)")
+    axes[1].set_xlabel("Location")
+    axes[1].grid(axis="y", linestyle="--", alpha=0.35)
+    axes[1].set_xticks(range(len(locations)))
+    axes[1].set_xticklabels(locations, rotation=20, ha="right")
+
+    # Use a single legend for environments
+    handles, labels = axes[0].get_legend_handles_labels()
+    if handles:
+        fig.legend(handles, labels, title="Outdoor environment", loc="upper right")
+
+    fig.tight_layout(rect=(0, 0, 0.88, 1))
+    plt.savefig(out_path, dpi=PLOT_STYLE["dpi"])
+    plt.close()
+
+
+measurement_points_plot = results_dir / "measurement_points_by_location_environment.png"
+_plot_measurement_points_by_location_environment(measurement_points_plot)
+print(f"Saved additional measurement-points plot: {measurement_points_plot}\n")
+
+# -----------------------------------------------------
+# Combined dashboard: Bland-Altman + Training/Error plots
+# -----------------------------------------------------
+def _compose_dashboard(
+    bland_altman_path: Path,
+    out_path: Path,
+) -> None:
+    """Create a 2x2 dashboard with Bland-Altman + training/error plots."""
+    if not (
+        bland_altman_path.exists()
+        and training_time_plot.exists()
+        and location_plot.exists()
+        and car_type_plot.exists()
+    ):
+        return
+
+    fig, axes = plt.subplots(2, 2, figsize=(16, 12))
+    ax = axes.ravel()
+
+    imgs = [
+        (bland_altman_path, "Bland-Altman"),
+        (location_plot, "Prediction Error by Location"),
+        (car_type_plot, "Prediction Error by Car Type"),
+        (training_time_plot, "Training Time by Model"),
+    ]
+    for i, (img_path, title) in enumerate(imgs):
+        img = plt.imread(img_path)
+        ax[i].imshow(img)
+        ax[i].set_title(title)
+        ax[i].axis("off")
+
+    fig.tight_layout()
+    plt.savefig(out_path, dpi=PLOT_STYLE["dpi"])
+    plt.close()
+
+
+bland_altman_dashboard_b = results_dir / "bland_altman_dashboard_b.png"
+bland_altman_dashboard_e = results_dir / "bland_altman_dashboard_e.png"
+_compose_dashboard(bland_altman_b_by_car_path, bland_altman_dashboard_b)
+_compose_dashboard(bland_altman_e_by_car_path, bland_altman_dashboard_e)
 
 
 # -----------------------------------------------------
@@ -1084,6 +1339,20 @@ with open(summary_path, "w", encoding="utf-8") as f:
         f.write("\nBland-Altman plots (Colored by car_type)\n")
         f.write(f"  - {bland_altman_b_by_car_path.name}\n")
         f.write(f"  - {bland_altman_e_by_car_path.name}\n")
+    if training_time_plot.exists():
+        f.write("\nTraining time plot\n")
+        f.write(f"  - {training_time_plot.name}\n")
+    if location_plot.exists() and car_type_plot.exists():
+        f.write("\nPrediction error plots (MAE)\n")
+        f.write(f"  - {location_plot.name}\n")
+        f.write(f"  - {car_type_plot.name}\n")
+    if measurement_points_plot.exists():
+        f.write("\nAdditional measurement points plot\n")
+        f.write(f"  - {measurement_points_plot.name}\n")
+    if bland_altman_dashboard_b.exists() and bland_altman_dashboard_e.exists():
+        f.write("\nBland-Altman dashboards (combined graphics)\n")
+        f.write(f"  - {bland_altman_dashboard_b.name}\n")
+        f.write(f"  - {bland_altman_dashboard_e.name}\n")
     f.write("\nPer-sheet what-if predictions (Multi-output)\n")
     for r in per_sheet_results:
         f.write(
