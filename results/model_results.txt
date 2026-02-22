@@ -8,23 +8,23 @@ Baseline (DummyRegressor, CV=3-fold) - Multi-output
   B (µT):      RMSE: 6.954 µT,  R²: -0.024
   E (V/m):     RMSE: 0.779 V/m, R²: -0.022
 
-  Training time: 0.03 s
+  Training time: 0.04 s
 
 Random Forest (best via GridSearchCV, CV=3-fold) - Multi-output
   Best params: {'model__max_depth': None, 'model__min_samples_leaf': 1, 'model__n_estimators': 200}
-  B (µT):      RMSE: 7.027 µT,  R²: -0.046
-  E (V/m):     RMSE: 0.674 V/m, R²: 0.236
+  B (µT):      RMSE: 7.062 µT,  R²: -0.056
+  E (V/m):     RMSE: 0.678 V/m, R²: 0.225
 
-  Training time: 4.27 s
+  Training time: 7.74 s
 
 TensorFlow/Keras Neural Network (train/test split 80/20) - Multi-output
   Architecture: Dense(64) -> Dropout(0.2) -> Dense(32) -> Dropout(0.2) -> Dense(16) -> Dense(2)
   Optimizer: Adam (lr=0.001)
   Training samples: 136
   Test samples: 35
-  B (µT):      RMSE: 5.927 µT,  R²: -0.055
-  E (V/m):     RMSE: 0.981 V/m, R²: -0.266
-  Training time: 4.37 s
+  B (µT):      RMSE: 5.973 µT,  R²: -0.071
+  E (V/m):     RMSE: 1.219 V/m, R²: -0.956
+  Training time: 5.55 s
   Note: TensorFlow model uses train/test split due to dataset size.
 
 Per-sheet outputs (one PNG per sheet)
@@ -94,26 +94,40 @@ Bland-Altman plots (Colored by car_type)
   - bland_altman_b_by_car.png
   - bland_altman_e_by_car.png
 
+Training time plot
+  - training_time_by_model.png
+
+Prediction error plots (MAE)
+  - prediction_error_by_location.png
+  - prediction_error_by_car_type.png
+
+Additional measurement points plot
+  - measurement_points_by_location_environment.png
+
+Bland-Altman dashboards (combined graphics)
+  - bland_altman_dashboard_b.png
+  - bland_altman_dashboard_e.png
+
 Per-sheet what-if predictions (Multi-output)
-  - electric / Braking (n=9, CV=3): B̂=1.201 µT, Ê=1.365 V/m
-  - electric / High Voltage power lines around (n=9, CV=3): B̂=2.224 µT, Ê=0.932 V/m
+  - electric / Braking (n=9, CV=3): B̂=1.199 µT, Ê=1.370 V/m
+  - electric / High Voltage power lines around (n=9, CV=3): B̂=2.724 µT, Ê=0.882 V/m
   - electric / Starting the engine (n=9, CV=3): B̂=1.014 µT, Ê=0.625 V/m
-  - electric / While charging (n=9, CV=3): B̂=2.021 µT, Ê=1.123 V/m
-  - electric / acclerating (n=9, CV=3): B̂=1.163 µT, Ê=1.580 V/m
-  - electric / urban_cruising (n=9, CV=3): B̂=0.810 µT, Ê=1.447 V/m
-  - electric / vicinity of charging station (n=9, CV=3): B̂=1.196 µT, Ê=1.140 V/m
+  - electric / While charging (n=9, CV=3): B̂=2.017 µT, Ê=1.123 V/m
+  - electric / acclerating (n=9, CV=3): B̂=1.164 µT, Ê=1.581 V/m
+  - electric / urban_cruising (n=9, CV=3): B̂=0.829 µT, Ê=1.447 V/m
+  - electric / vicinity of charging station (n=9, CV=3): B̂=1.027 µT, Ê=1.151 V/m
   - hybrid / Braking (n=9, CV=3): B̂=2.552 µT, Ê=1.025 V/m
   - hybrid / High Voltage power lines around (n=9, CV=3): B̂=1.375 µT, Ê=1.413 V/m
   - hybrid / Starting the engine (n=9, CV=3): B̂=0.865 µT, Ê=0.614 V/m
   - hybrid / acclerating (n=9, CV=3): B̂=23.281 µT, Ê=1.740 V/m
   - hybrid / urban_cruising (n=9, CV=3): B̂=1.398 µT, Ê=1.209 V/m
   - hybrid / vicinity of charging station (n=9, CV=3): B̂=1.233 µT, Ê=1.481 V/m
-  - mildhybrid / Braking (n=9, CV=3): B̂=1.929 µT, Ê=0.925 V/m
-  - mildhybrid / High Voltage power lines around (n=9, CV=3): B̂=2.367 µT, Ê=1.252 V/m
-  - mildhybrid / Starting the engine (n=9, CV=3): B̂=0.656 µT, Ê=0.580 V/m
-  - mildhybrid / acclerating (n=9, CV=3): B̂=1.494 µT, Ê=0.606 V/m
-  - mildhybrid / urban_cruising (n=9, CV=3): B̂=2.693 µT, Ê=2.035 V/m
-  - mildhybrid / vicinity of charging station (n=9, CV=3): B̂=0.875 µT, Ê=1.457 V/m
+  - mildhybrid / Braking (n=9, CV=3): B̂=4.043 µT, Ê=0.593 V/m
+  - mildhybrid / High Voltage power lines around (n=9, CV=3): B̂=10.510 µT, Ê=1.652 V/m
+  - mildhybrid / Starting the engine (n=9, CV=3): B̂=0.890 µT, Ê=0.598 V/m
+  - mildhybrid / acclerating (n=9, CV=3): B̂=3.782 µT, Ê=1.185 V/m
+  - mildhybrid / urban_cruising (n=9, CV=3): B̂=2.651 µT, Ê=1.926 V/m
+  - mildhybrid / vicinity of charging station (n=9, CV=3): B̂=1.009 µT, Ê=1.689 V/m
 
 Per-sheet measured risk (Top 10 by measured max(B))
   - hybrid / acclerating: B: mean=10.175 µT, p95=45.912 µT, max=73.280 µT; E: mean=1.559 V/m, max=2.570 V/m; ICNIRP exceeds: NO, IEEE exceeds: NO

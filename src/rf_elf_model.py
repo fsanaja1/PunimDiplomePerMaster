@@ -77,6 +77,16 @@ for sheet_name, df in all_sheets.items():
                 df["sheet_name"] = df[old_col].astype(str).str.strip()
             else:
                 df[new_col] = df[old_col]
+
+    # Strip trailing/leading whitespace from column names and all string values
+    df.columns = df.columns.str.strip()
+    for col in df.select_dtypes(include="object").columns:
+        df[col] = df[col].astype(str).str.strip()
+
+    # Normalize location values: "rear seat" → "back"
+    loc_mapped = "Location (front/rear seat/inside front shield)"
+    if loc_mapped in df.columns:
+        df[loc_mapped] = df[loc_mapped].replace("rear seat", "back")
     
     # Nëse nuk ka driving_condition, përdor sheet_name origjinal
     if "sheet_name" not in df.columns:
@@ -118,10 +128,10 @@ print(f"Scenarios (driving conditions) found: {data['sheet_name'].unique().tolis
 # -----------------------------------------------------
 features = [
     "Location (front/rear seat/inside front shield)",
-    "Area description (Traffic and road conditions)",
     "Speed",
     "car_type",
     "sheet_name",
+    "Frequency",
 ]
 
 # Multi-output targets: B (magnetic field) dhe E (electric field)
@@ -133,9 +143,9 @@ y = data[targets].copy()  # Tani y është DataFrame me 2 kolona
 # Ensure categorical columns have consistent dtype across all input files
 for _col in [
     "Location (front/rear seat/inside front shield)",
-    "Area description (Traffic and road conditions)",
     "car_type",
     "sheet_name",
+    "Frequency",
 ]:
     if _col in X.columns:
         X[_col] = X[_col].astype(str)
@@ -264,9 +274,9 @@ IEEE_LIMIT_B_UT = _ieee_limit_b_ut()
 
 categorical_features = [
     "Location (front/rear seat/inside front shield)",
-    "Area description (Traffic and road conditions)",
     "car_type",
     "sheet_name",
+    "Frequency",
 ]
 numeric_features = [
     "Speed",
@@ -713,12 +723,115 @@ def _plot_training_time_bar(out_path: Path) -> None:
     plt.close()
 
 
+def _plot_rmse_comparison(out_path: Path) -> None:
+    """Grouped bar chart comparing RMSE across models for B and E fields."""
+    from matplotlib.patches import Patch
+
+    models   = ["Baseline\n(DummyRegressor)", "Random Forest\n(CV)", "TensorFlow\n(train/test)"]
+    hatches  = ["//", "",  "xx"]      # unique hatch per model (readable even in B&W)
+    alphas   = [0.70, 1.0, 0.85]
+
+    rmse_b_vals = [rmse_base_b, rmse_cv_b, tf_metrics["rmse_b"] if tf_metrics else np.nan]
+    rmse_e_vals = [rmse_base_e, rmse_cv_e, tf_metrics["rmse_e"] if tf_metrics else np.nan]
+    r2_b_vals   = [r2_base_b,   r2_cv_b,   tf_metrics["r2_b"]   if tf_metrics else np.nan]
+    r2_e_vals   = [r2_base_e,   r2_cv_e,   tf_metrics["r2_e"]   if tf_metrics else np.nan]
+
+    # B always blue, E always orange — same color across ALL models so it's instantly readable
+    COLOR_B = "#2E86AB"
+    COLOR_E = "#F5A623"
+
+    x     = np.arange(len(models))
+    width = 0.32
+
+    plt.rcParams.update(
+        {
+            "font.size": PLOT_STYLE["base_fontsize"],
+            "axes.titlesize": PLOT_STYLE["title_fontsize"],
+            "axes.labelsize": 12,
+        }
+    )
+
+    fig, axes = plt.subplots(1, 2, figsize=(15, 6))
+    fig.suptitle(
+        "Model Performance Comparison – RMSE & R²",
+        fontsize=PLOT_STYLE["title_fontsize"] + 2,
+        fontweight="bold",
+    )
+
+    def _label_bar(ax, bar, color):
+        h = bar.get_height()
+        if np.isnan(h):
+            return
+        offset = abs(h) * 0.04 + 0.02
+        ypos = h + offset if h >= 0 else h - offset
+        ax.text(
+            bar.get_x() + bar.get_width() / 2, ypos,
+            f"{h:.2f}",
+            ha="center", va="bottom",
+            fontsize=9, fontweight="bold", color=color,
+        )
+
+    for ax, vals_b, vals_e, title, ylabel in [
+        (axes[0], rmse_b_vals, rmse_e_vals, "RMSE  (lower = better)", "RMSE"),
+        (axes[1], r2_b_vals,   r2_e_vals,   "R²  (higher = better)",  "R²"),
+    ]:
+        for i, (hatch, alpha) in enumerate(zip(hatches, alphas)):
+            b_bar = ax.bar(
+                x[i] - width / 2, vals_b[i], width,
+                color=COLOR_B, alpha=alpha,
+                edgecolor="black", linewidth=0.9, hatch=hatch,
+            )
+            e_bar = ax.bar(
+                x[i] + width / 2, vals_e[i], width,
+                color=COLOR_E, alpha=alpha,
+                edgecolor="black", linewidth=0.9, hatch=hatch,
+            )
+            _label_bar(ax, b_bar[0], "#0a2a50")
+            _label_bar(ax, e_bar[0], "#7a4a00")
+
+        ax.set_title(title, fontweight="bold")
+        ax.set_ylabel(ylabel)
+        ax.set_xticks(x)
+        ax.set_xticklabels(models, fontsize=10)
+        ax.grid(axis="y", linestyle="--", alpha=0.35)
+
+        if ylabel == "R²":
+            ax.axhline(0, color="black", linewidth=0.9, linestyle="--")
+            ax.axhline(1, color="green", linewidth=0.8, linestyle=":")
+
+        # Combined legend: color = field, hatch = model
+        legend_handles = [
+            Patch(facecolor=COLOR_B, edgecolor="black", label="B – Magnetic Field (µT)"),
+            Patch(facecolor=COLOR_E, edgecolor="black", label="E – Electric Field (V/m)"),
+            Patch(facecolor="white", edgecolor="black", hatch="//", label="Baseline (//)"),
+            Patch(facecolor="white", edgecolor="black", hatch="",   label="Random Forest (solid)"),
+            Patch(facecolor="white", edgecolor="black", hatch="xx", label="TensorFlow (xx)"),
+        ]
+        ax.legend(handles=legend_handles, fontsize=8, loc="upper right", framealpha=0.95)
+
+    fig.text(
+        0.5, -0.02,
+        "Baseline = DummyRegressor (always predicts mean)  |  "
+        "Random Forest uses 3-fold CV  |  "
+        "TensorFlow uses 80/20 train-test split",
+        ha="center", fontsize=8, color="gray",
+    )
+
+    fig.tight_layout()
+    plt.savefig(out_path, dpi=PLOT_STYLE["dpi"], bbox_inches="tight")
+    plt.close()
+
+
 # Errors for B and E
 errors_b = (y_pred_cv[:, 0] - y.iloc[:, 0]).abs()
 errors_e = (y_pred_cv[:, 1] - y.iloc[:, 1]).abs()
 
 training_time_plot = results_dir / "training_time_by_model.png"
 _plot_training_time_bar(training_time_plot)
+
+rmse_comparison_plot = results_dir / "rmse_r2_model_comparison.png"
+_plot_rmse_comparison(rmse_comparison_plot)
+print(f"Saved RMSE/R² comparison plot: {rmse_comparison_plot}")
 
 location_plot = results_dir / "prediction_error_by_location.png"
 car_type_plot = results_dir / "prediction_error_by_car_type.png"
@@ -753,7 +866,7 @@ def _plot_measurement_points_by_location_environment(
     df = pd.DataFrame(
         {
             "location": X[loc_col].astype(str),
-            "environment": X[env_col].astype(str),
+            "environment": data[env_col].astype(str) if env_col in data.columns else X["car_type"].astype(str),
             "car_type": X["car_type"].astype(str),
             "B": pd.to_numeric(y.iloc[:, 0], errors="coerce"),
             "E": pd.to_numeric(y.iloc[:, 1], errors="coerce"),
@@ -832,6 +945,284 @@ def _plot_measurement_points_by_location_environment(
 measurement_points_plot = results_dir / "measurement_points_by_location_environment.png"
 _plot_measurement_points_by_location_environment(measurement_points_plot)
 print(f"Saved additional measurement-points plot: {measurement_points_plot}\n")
+
+
+def _plot_measurement_points_by_driving_condition(out_path: Path) -> None:
+    """Plot raw measurement points by location, faceted by driving condition (one subplot per scenario)."""
+    loc_col = "Location (front/rear seat/inside front shield)"
+    dc_col = "sheet_name"  # driving_condition in Excel
+
+    df = pd.DataFrame(
+        {
+            "location": X[loc_col].astype(str),
+            "driving_condition": X[dc_col].astype(str),
+            "car_type": X["car_type"].astype(str),
+            "B": pd.to_numeric(y.iloc[:, 0], errors="coerce"),
+            "E": pd.to_numeric(y.iloc[:, 1], errors="coerce"),
+        }
+    ).dropna(subset=["location", "driving_condition", "B", "E"])
+
+    if df.empty:
+        return
+
+    driving_conditions = sorted(df["driving_condition"].unique().tolist())
+    locations = sorted(df["location"].unique().tolist())
+    loc_to_x = {loc: i for i, loc in enumerate(locations)}
+
+    car_types = sorted(df["car_type"].unique().tolist())
+    car_cmap = plt.get_cmap("tab10")
+    car_to_color = {ct: car_cmap(i % 10) for i, ct in enumerate(car_types)}
+
+    rng = np.random.default_rng(42)
+
+    n_dc = len(driving_conditions)
+    fig, axes = plt.subplots(
+        n_dc, 2,
+        figsize=(16, 4 * n_dc),
+        sharex="col",
+        sharey="none",
+    )
+    # Ensure axes is always 2-D
+    if n_dc == 1:
+        axes = np.array([axes])
+
+    fig.suptitle(
+        "Measurement Points by Driving Condition\n(each row = one scenario, colored by car type)",
+        fontsize=PLOT_STYLE["title_fontsize"] + 1,
+        fontweight="bold",
+        y=1.01,
+    )
+
+    plt.rcParams.update(
+        {
+            "font.size": PLOT_STYLE["base_fontsize"],
+            "axes.titlesize": PLOT_STYLE["title_fontsize"],
+            "axes.labelsize": 11,
+        }
+    )
+
+    for row_idx, dc in enumerate(driving_conditions):
+        sub = df[df["driving_condition"] == dc]
+
+        x_vals = sub["location"].map(loc_to_x).to_numpy(dtype=float) + rng.uniform(
+            -0.15, 0.15, size=len(sub)
+        )
+
+        ax_b = axes[row_idx, 0]
+        ax_e = axes[row_idx, 1]
+
+        for ct in car_types:
+            mask = sub["car_type"] == ct
+            ax_b.scatter(
+                x_vals[mask.values],
+                sub.loc[mask, "B"],
+                s=40,
+                alpha=0.75,
+                color=car_to_color[ct],
+                edgecolor="k",
+                linewidth=0.3,
+                label=ct,
+            )
+            ax_e.scatter(
+                x_vals[mask.values],
+                sub.loc[mask, "E"],
+                s=40,
+                alpha=0.75,
+                color=car_to_color[ct],
+                edgecolor="k",
+                linewidth=0.3,
+                label=ct,
+            )
+
+        ax_b.set_title(f"{dc}", fontsize=10, fontweight="bold")
+        ax_b.set_ylabel("B (µT)")
+        ax_b.grid(axis="y", linestyle="--", alpha=0.35)
+
+        ax_e.set_title(f"{dc}", fontsize=10, fontweight="bold")
+        ax_e.set_ylabel("E (V/m)")
+        ax_e.grid(axis="y", linestyle="--", alpha=0.35)
+
+        # X-tick labels only on last row
+        for ax in (ax_b, ax_e):
+            ax.set_xticks(range(len(locations)))
+            if row_idx == n_dc - 1:
+                ax.set_xticklabels(locations, rotation=25, ha="right", fontsize=9)
+            else:
+                ax.set_xticklabels([])
+
+    # Column headers
+    axes[0, 0].annotate(
+        "B – Magnetic Field (µT)",
+        xy=(0.5, 1.02), xycoords="axes fraction",
+        ha="center", fontsize=11, fontweight="bold", color="#1a3c6e",
+    )
+    axes[0, 1].annotate(
+        "E – Electric Field (V/m)",
+        xy=(0.5, 1.02), xycoords="axes fraction",
+        ha="center", fontsize=11, fontweight="bold", color="#6e1a1a",
+    )
+
+    # Shared x-axis label
+    fig.text(0.5, -0.01, "Location", ha="center", fontsize=12)
+
+    # Legend for car types (once)
+    handles = [
+        plt.Line2D(
+            [0], [0],
+            marker="o", color="w",
+            markerfacecolor=car_to_color[ct],
+            markeredgecolor="k",
+            markersize=9,
+            label=ct,
+        )
+        for ct in car_types
+    ]
+    fig.legend(
+        handles, car_types,
+        title="Car type",
+        loc="upper right",
+        bbox_to_anchor=(1.0, 1.0),
+        fontsize=10,
+    )
+
+    fig.tight_layout(rect=(0, 0, 0.93, 1))
+    plt.savefig(out_path, dpi=PLOT_STYLE["dpi"], bbox_inches="tight")
+    plt.close()
+
+
+measurement_points_dc_plot = results_dir / "measurement_points_by_driving_condition.png"
+_plot_measurement_points_by_driving_condition(measurement_points_dc_plot)
+print(f"Saved driving-condition measurement-points plot: {measurement_points_dc_plot}\n")
+
+
+def _plot_cartype_driving_single_field(
+    field: str,          # "B" or "E"
+    ylabel: str,         # axis label
+    out_path: Path,
+) -> None:
+    """One scatter plot: X = car_type, colors = driving_condition, Y = field value."""
+    dc_col = "sheet_name"
+    loc_col = "Location (front/rear seat/inside front shield)"
+
+    df = pd.DataFrame(
+        {
+            "car_type": X["car_type"].astype(str),
+            "driving_condition": X[dc_col].astype(str),
+            "location": X[loc_col].astype(str),
+            "B": pd.to_numeric(y.iloc[:, 0], errors="coerce"),
+            "E": pd.to_numeric(y.iloc[:, 1], errors="coerce"),
+        }
+    ).dropna(subset=["car_type", "driving_condition", field])
+
+    if df.empty:
+        return
+
+    car_types = sorted(df["car_type"].unique().tolist())
+    driving_conditions = sorted(df["driving_condition"].unique().tolist())
+    car_to_x = {ct: i for i, ct in enumerate(car_types)}
+
+    # Color palette for driving conditions
+    dc_cmap = plt.get_cmap("tab10")
+    dc_to_color = {dc: dc_cmap(i % 10) for i, dc in enumerate(driving_conditions)}
+
+    rng = np.random.default_rng(42)
+    x_vals = df["car_type"].map(car_to_x).to_numpy(dtype=float) + rng.uniform(
+        -0.2, 0.2, size=len(df)
+    )
+
+    plt.rcParams.update(
+        {
+            "font.size": PLOT_STYLE["base_fontsize"],
+            "axes.titlesize": PLOT_STYLE["title_fontsize"],
+            "axes.labelsize": 12,
+        }
+    )
+
+    is_b = field == "B"
+    title_field = "Magnetic Field B (µT)" if is_b else "Electric Field E (V/m)"
+    title_color = "#1a3c6e" if is_b else "#6e1a1a"
+
+    fig, ax = plt.subplots(figsize=(12, 7))
+
+    for dc in driving_conditions:
+        mask = df["driving_condition"] == dc
+        ax.scatter(
+            x_vals[mask.values],
+            df.loc[mask, field],
+            s=55,
+            alpha=0.78,
+            color=dc_to_color[dc],
+            edgecolor="k",
+            linewidth=0.3,
+            label=dc,
+            zorder=3,
+        )
+
+    # Box-plot overlay (per car type) for distribution feel
+    box_data = [df.loc[df["car_type"] == ct, field].dropna().values for ct in car_types]
+    bp = ax.boxplot(
+        box_data,
+        positions=range(len(car_types)),
+        widths=0.35,
+        patch_artist=False,
+        showfliers=False,
+        medianprops=dict(color="black", linewidth=2),
+        whiskerprops=dict(linewidth=1.2, linestyle="--"),
+        capprops=dict(linewidth=1.2),
+        zorder=2,
+    )
+
+    ax.set_title(
+        f"Measurement Points – {title_field}\nGrouped by Car Type, Colored by Driving Condition",
+        fontsize=PLOT_STYLE["title_fontsize"] + 1,
+        fontweight="bold",
+        color=title_color,
+    )
+    ax.set_ylabel(ylabel, fontsize=13)
+    ax.set_xlabel("Car Type", fontsize=13)
+    ax.set_xticks(range(len(car_types)))
+    ax.set_xticklabels(
+        [ct.replace("mildhybrid", "Mild Hybrid").replace("hybrid", "Hybrid").replace("electric", "Electric")
+         for ct in car_types],
+        fontsize=12,
+        fontweight="bold",
+    )
+    ax.grid(axis="y", linestyle="--", alpha=0.35)
+
+    # Legend for driving conditions (outside plot)
+    handles = [
+        plt.Line2D(
+            [0], [0],
+            marker="o", color="w",
+            markerfacecolor=dc_to_color[dc],
+            markeredgecolor="k",
+            markersize=9,
+            label=dc,
+        )
+        for dc in driving_conditions
+    ]
+    ax.legend(
+        handles, driving_conditions,
+        title="Driving Condition",
+        bbox_to_anchor=(1.01, 1),
+        loc="upper left",
+        fontsize=9,
+        title_fontsize=10,
+        framealpha=0.9,
+    )
+
+    fig.tight_layout(rect=(0, 0, 0.78, 1))
+    plt.savefig(out_path, dpi=PLOT_STYLE["dpi"], bbox_inches="tight")
+    plt.close()
+
+
+b_cartype_dc_plot = results_dir / "B_field_by_cartype_and_driving_condition.png"
+e_cartype_dc_plot = results_dir / "E_field_by_cartype_and_driving_condition.png"
+
+_plot_cartype_driving_single_field("B", "B (µT)",  b_cartype_dc_plot)
+_plot_cartype_driving_single_field("E", "E (V/m)", e_cartype_dc_plot)
+print(f"Saved B-field plot: {b_cartype_dc_plot}")
+print(f"Saved E-field plot: {e_cartype_dc_plot}\n")
 
 # -----------------------------------------------------
 # Combined dashboard: Bland-Altman + Training/Error plots
@@ -974,10 +1365,10 @@ def _train_and_plot_for_sheet(car: str, sheet: str) -> dict | None:
     # What-if *for this sheet* (scenario) and this car_type
     what_if_row = {
         "Location (front/rear seat/inside front shield)": "front",
-        "Area description (Traffic and road conditions)": "heavy traffic on the road",
         "Speed": 80,
         "car_type": car,
         "sheet_name": sheet,
+        "Frequency": "1HZ",
     }
     what_if_pred = model_s.predict(pd.DataFrame([what_if_row]))[0]  # Tani kthen array me 2 vlera: [B, E]
     what_if_pred_b = float(what_if_pred[0])  # B (µT)

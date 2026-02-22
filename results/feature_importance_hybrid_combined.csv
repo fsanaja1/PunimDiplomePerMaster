@@ -1,8 +1,6 @@
 feature,mean,count
 cat__Location (front/rear seat/inside front shield)_inside front shield,0.44955555982347223,6
-cat__Location (front/rear seat/inside front shield)_back ,0.2519741798191245,6
+cat__Location (front/rear seat/inside front shield)_back,0.2519741798191245,6
 cat__Location (front/rear seat/inside front shield)_front,0.22722759436898088,6
 num__Speed,0.07124266598842234,6
-cat__Area description (Traffic and road conditions)_light traffic on the road ,0.0,2
-cat__Area description (Traffic and road conditions)_Car is in the parking garage,0.0,1
-cat__Area description (Traffic and road conditions)_light traffic on the road,0.0,3
+cat__Frequency_1HZ,0.0,6
