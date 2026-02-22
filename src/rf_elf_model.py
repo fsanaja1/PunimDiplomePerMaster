@@ -419,9 +419,15 @@ if TENSORFLOW_AVAILABLE:
     
     # Train në të gjithë dataset-in dhe vlerëso me train/test split të thjeshtë
     from sklearn.model_selection import train_test_split
-    X_train_tf, X_test_tf, y_train_tf, y_test_tf = train_test_split(
-        X_preprocessed_dense, y, test_size=0.2, random_state=42, shuffle=True
+    _all_idx = np.arange(len(y))
+    _train_idx, _test_idx = train_test_split(
+        _all_idx, test_size=0.2, random_state=42, shuffle=True
     )
+    X_train_tf, X_test_tf, y_train_tf, y_test_tf = (
+        X_preprocessed_dense[_train_idx], X_preprocessed_dense[_test_idx],
+        y.iloc[_train_idx],               y.iloc[_test_idx],
+    )
+    tf_test_idx = _test_idx   # store for paired t-test later
     
     # Krijo dhe trajno modelin
     tf_model = create_keras_model(X_preprocessed_dense.shape[1])
@@ -469,6 +475,9 @@ if TENSORFLOW_AVAILABLE:
         "n_train": len(X_train_tf),
         "n_test": len(X_test_tf),
         "train_seconds": tf_train_seconds,
+        "y_pred_tf_b": y_pred_tf[:, 0],   # predictions on test rows
+        "y_pred_tf_e": y_pred_tf[:, 1],
+        "test_idx":    tf_test_idx,
     }
 else:
     tf_metrics = None
@@ -832,6 +841,141 @@ _plot_training_time_bar(training_time_plot)
 rmse_comparison_plot = results_dir / "rmse_r2_model_comparison.png"
 _plot_rmse_comparison(rmse_comparison_plot)
 print(f"Saved RMSE/R² comparison plot: {rmse_comparison_plot}")
+
+
+def _plot_paired_ttest_table(out_path: Path) -> None:
+    """
+    Render a styled table of paired t-test results (absolute error) for all model pairs.
+    Pairs:
+      - Baseline  vs  Random Forest   (all N rows, CV predictions)
+      - Baseline  vs  TensorFlow      (TF test rows only)
+      - Random Forest vs TensorFlow   (TF test rows only)
+    """
+    from scipy import stats
+    from matplotlib.patches import FancyBboxPatch
+
+    # --- absolute errors on ALL rows (CV predictions) ---
+    abs_err_base_b = np.abs(y_pred_base[:, 0] - y.iloc[:, 0].values)
+    abs_err_base_e = np.abs(y_pred_base[:, 1] - y.iloc[:, 1].values)
+    abs_err_rf_b   = np.abs(y_pred_cv[:, 0]   - y.iloc[:, 0].values)
+    abs_err_rf_e   = np.abs(y_pred_cv[:, 1]   - y.iloc[:, 1].values)
+
+    rows = []
+
+    def _ttest_row(label, err1, err2, n):
+        """Return a result row dict for one pair and one field."""
+        t_stat, p_val = stats.ttest_rel(err1, err2)
+        mean_diff = np.mean(err1) - np.mean(err2)
+        sig = "Yes ***" if p_val < 0.001 else ("Yes **" if p_val < 0.01 else ("Yes *" if p_val < 0.05 else "No"))
+        return {
+            "Model Pair": label,
+            "N": n,
+            "Mean |err| A": f"{np.mean(err1):.3f}",
+            "Mean |err| B": f"{np.mean(err2):.3f}",
+            "Mean Diff (A−B)": f"{mean_diff:+.3f}",
+            "t-statistic": f"{t_stat:.3f}",
+            "p-value": f"{p_val:.4f}",
+            "Significant\n(p < 0.05)": sig,
+        }
+
+    n_all = len(y)
+
+    # Pair 1: Baseline vs RF — all rows
+    rows.append(("B (µT)",  "Baseline vs RF",         _ttest_row("Baseline vs RF",   abs_err_base_b, abs_err_rf_b, n_all)))
+    rows.append(("E (V/m)", "Baseline vs RF",         _ttest_row("Baseline vs RF",   abs_err_base_e, abs_err_rf_e, n_all)))
+
+    # Pairs involving TF — only on TF test rows
+    if tf_metrics is not None:
+        tidx = tf_metrics["test_idx"]
+        n_tf = len(tidx)
+
+        abs_err_tf_b = np.abs(tf_metrics["y_pred_tf_b"] - y.iloc[tidx, 0].values)
+        abs_err_tf_e = np.abs(tf_metrics["y_pred_tf_e"] - y.iloc[tidx, 1].values)
+
+        rows.append(("B (µT)",  "Baseline vs TF",   _ttest_row("Baseline vs TF",  abs_err_base_b[tidx], abs_err_tf_b, n_tf)))
+        rows.append(("E (V/m)", "Baseline vs TF",   _ttest_row("Baseline vs TF",  abs_err_base_e[tidx], abs_err_tf_e, n_tf)))
+        rows.append(("B (µT)",  "RF vs TF",         _ttest_row("RF vs TF",        abs_err_rf_b[tidx],   abs_err_tf_b, n_tf)))
+        rows.append(("E (V/m)", "RF vs TF",         _ttest_row("RF vs TF",        abs_err_rf_e[tidx],   abs_err_tf_e, n_tf)))
+
+    # Build DataFrame
+    table_rows = []
+    for field, pair, r in rows:
+        table_rows.append({
+            "Field": field,
+            "Model Pair (A vs B)": r["Model Pair"],
+            "N": r["N"],
+            "Mean |err| A": r["Mean |err| A"],
+            "Mean |err| B": r["Mean |err| B"],
+            "Mean Diff (A−B)": r["Mean Diff (A−B)"],
+            "t-statistic": r["t-statistic"],
+            "p-value": r["p-value"],
+            "Significant\n(p<0.05)": r["Significant\n(p < 0.05)"],
+        })
+
+    df_tbl = pd.DataFrame(table_rows)
+
+    # Also save as CSV
+    csv_path = out_path.with_suffix(".csv")
+    df_tbl.to_csv(csv_path, index=False)
+
+    # --- Render as matplotlib table ---
+    col_labels = list(df_tbl.columns)
+    cell_text  = df_tbl.values.tolist()
+    n_rows     = len(cell_text)
+    n_cols     = len(col_labels)
+
+    fig_h = max(4.5, 1.0 + n_rows * 0.6)
+    fig, ax = plt.subplots(figsize=(16, fig_h))
+    ax.axis("off")
+
+    ax.set_title(
+        "Paired T-Test: Absolute Error Comparison Across Model Pairs",
+        fontsize=14, fontweight="bold", pad=16,
+    )
+
+    tbl = ax.table(
+        cellText=cell_text,
+        colLabels=col_labels,
+        cellLoc="center",
+        loc="center",
+    )
+    tbl.auto_set_font_size(False)
+    tbl.set_fontsize(9)
+    tbl.scale(1.0, 1.8)
+
+    # Color header
+    for col_idx in range(n_cols):
+        tbl[0, col_idx].set_facecolor("#2E86AB")
+        tbl[0, col_idx].set_text_props(color="white", fontweight="bold")
+
+    # Alternate row shading + highlight significant results
+    for row_idx in range(1, n_rows + 1):
+        sig_val = cell_text[row_idx - 1][-1]  # last column
+        is_sig = sig_val.startswith("Yes")
+        for col_idx in range(n_cols):
+            cell = tbl[row_idx, col_idx]
+            if is_sig:
+                cell.set_facecolor("#d4edda")   # light green for significant
+            elif row_idx % 2 == 0:
+                cell.set_facecolor("#f2f2f2")
+            else:
+                cell.set_facecolor("#ffffff")
+
+    # Footer
+    fig.text(
+        0.5, 0.01,
+        "* p<0.05  ** p<0.01  *** p<0.001  |  Green rows = statistically significant difference  |  "
+        "Baseline & RF use all-data CV predictions; TF pairs use test-split rows only.",
+        ha="center", fontsize=7.5, color="gray",
+    )
+
+    fig.tight_layout(rect=(0, 0.04, 1, 1))
+    plt.savefig(out_path, dpi=PLOT_STYLE["dpi"], bbox_inches="tight")
+    plt.close()
+    print(f"Saved paired t-test table: {out_path}  (CSV: {csv_path})")
+
+
+_plot_paired_ttest_table(results_dir / "paired_ttest_table.png")
 
 location_plot = results_dir / "prediction_error_by_location.png"
 car_type_plot = results_dir / "prediction_error_by_car_type.png"
@@ -1649,8 +1793,11 @@ if per_sheet_results:
     risk_df = pd.DataFrame(per_sheet_results)
     # Rank by exceed first (ICNIRP is more conservative), then by measured max(B)
     risk_df = risk_df.sort_values(["exceeds_icnirp", "exceeds_ieee", "measured_max_b"], ascending=[False, False, False])
-    risk_df.to_csv(risk_csv_path, index=False)
-    print(f"Saved risk comparison table: {risk_csv_path}")
+    try:
+        risk_df.to_csv(risk_csv_path, index=False)
+        print(f"Saved risk comparison table: {risk_csv_path}")
+    except PermissionError:
+        print(f"WARNING: Could not save {risk_csv_path} – file may be open in Excel. Close it and re-run.")
 else:
     risk_df = pd.DataFrame()
 
@@ -1658,7 +1805,10 @@ else:
 icnirp_only_csv_path = results_dir / "icnirp_risk_by_sheet.csv"
 if not risk_df.empty:
     icnirp_cols = [col for col in risk_df.columns if col.startswith(("car_type", "sheet_name", "n_rows", "measured_", "icnirp_", "cv_splits", "best_params", "what_if_pred"))]
-    risk_df[icnirp_cols].to_csv(icnirp_only_csv_path, index=False)
+    try:
+        risk_df[icnirp_cols].to_csv(icnirp_only_csv_path, index=False)
+    except PermissionError:
+        print(f"WARNING: Could not save {icnirp_only_csv_path} – file may be open in Excel.")
 
 # -----------------------------------------------------
 # 6. Ruajtje e rezultateve (summary) në results/
