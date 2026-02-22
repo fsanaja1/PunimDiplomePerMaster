@@ -1,0 +1,8 @@
+Field,Model Pair (A vs B),N,Mean |err| A,Mean |err| B,Mean Diff (A−B),t-statistic,p-value,"Significant
+(p<0.05)"
+B (µT),Baseline vs RF,171,2.493,2.088,+0.405,2.556,0.0115,Yes *
+E (V/m),Baseline vs RF,171,0.599,0.483,+0.116,3.203,0.0016,Yes **
+B (µT),Baseline vs TF,35,2.651,1.792,+0.860,3.584,0.0010,Yes **
+E (V/m),Baseline vs TF,35,0.721,0.771,-0.050,-0.699,0.4895,No
+B (µT),RF vs TF,35,1.857,1.792,+0.065,0.219,0.8280,No
+E (V/m),RF vs TF,35,0.524,0.771,-0.247,-1.957,0.0586,No
